@@ -1,2 +1,2 @@
 # Projeto_Web
-Projeto Web de joão abreu mais felipe fonseca
+Projeto Web de João Abreu e Felipe Fonseca
