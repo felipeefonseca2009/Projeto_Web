@@ -1,66 +1,73 @@
 const express = require("express");
-
 const router = express.Router();
+const db = require("./db");
 
+// PÁGINA PRINCIPAL
 
-// Página principal
 router.get("/", (req, res) => {
-
     res.render("principal");
-
 });
 
+// PÁGINA DE SERVIÇOS
 
-// Página de serviços
 router.get("/servicos", (req, res) => {
-
     res.render("servicos");
+});
+
+// TESTE DE CONEXÃO COM O MYSQL
+
+router.get("/teste-db", async (req, res) => {
+
+    try {
+
+        const [resultado] = await db.query(
+            "SELECT 1 AS conectado"
+        );
+
+        res.json(resultado);
+
+    } catch (erro) {
+
+        console.error("Erro no banco:", erro);
+
+        res.status(500).json({
+            erro: "Erro ao consultar o banco",
+            mensagem: erro.message
+        });
+
+    }
 
 });
 
+// LISTAR CLIENTES
 
-// Cadastrar serviço
-router.post("/servicos", (req, res) => {
+router.get("/clientes", async (req, res) => {
 
-    const {
-        nome,
-        telefone,
-        carro,
-        placa,
-        problema
-    } = req.body;
+    try {
 
+        const [clientes] = await db.query(`
+            SELECT
+                id_cliente,
+                nome,
+                telefone,
+                email
+            FROM clientes
+            ORDER BY nome
+        `);
 
-    const sql = `
-        INSERT INTO servicos
-        (nome, telefone, carro, placa, problema)
-        VALUES (?, ?, ?, ?, ?)
-    `;
+        console.log(clientes);
 
+        res.json(clientes);
 
-    req.conexao.query(
-        sql,
-        [nome, telefone, carro, placa, problema],
-        (erro) => {
+    } catch (erro) {
 
-            if (erro) {
+        console.error("Erro ao consultar clientes:", erro);
 
-                console.log(erro);
-
-                return res.send(
-                    "Erro ao cadastrar o serviço."
-                );
-
-            }
-
-
-            res.send(
-                "Serviço cadastrado com sucesso!"
-            );
-
-        }
-    );
-
+        res.status(500).json({
+            erro: "Erro ao consultar clientes",
+            mensagem: erro.message
+        });
+    }
 });
 
 
