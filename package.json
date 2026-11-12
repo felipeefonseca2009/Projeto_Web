@@ -4,12 +4,15 @@
   "private": true,
   "scripts": {
     "start": "node app.js",
-    "test:db": "node teste-db.js"
+    "test:db": "node teste-db.js",
+    "create-admin": "node scripts/create-admin.js"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cookie-session": "^2.1.1",
     "dotenv": "^16.4.7",
     "ejs": "^3.1.10",
     "express": "^4.21.2",
-    "mysql2": "^3.12.0"
+    "mysql2": "^3.24.6"
   }
 }

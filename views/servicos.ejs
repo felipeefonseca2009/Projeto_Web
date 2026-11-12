@@ -6,8 +6,8 @@
         <h1>Conte para nós<br>o que seu carro precisa<span>.</span></h1>
         <p>Deixe seus dados e uma breve descrição. Nossa equipe poderá entender melhor como ajudar.</p>
         <div class="form-aside">
-            <span class="aside-number">01</span>
-            <p>Envios ainda não são gravados no banco de dados.</p>
+            <span class="aside-number">Você!</span>
+            <p>Escreva para que possamos ajudar!</p>
         </div>
     </div>
 
@@ -16,29 +16,31 @@
         <p class="form-subtitle">Preencha os campos para continuar.</p>
 
         <% if (enviado) { %>
-            <div class="notice" role="status">Formulário recebido nesta demonstração. Os dados não foram salvos.</div>
+            <div class="notice" role="status">Solicitação enviada com sucesso!</div>
+        <% } else if (erro) { %>
+            <div class="notice notice-error" role="alert">Não foi possível enviar a solicitação. Confira os campos e tente novamente.</div>
         <% } %>
 
         <form action="/servicos" method="POST" class="service-form">
             <div class="form-field">
                 <label for="nome">Seu nome</label>
-                <input type="text" id="nome" name="nome" autocomplete="name" placeholder="Ex.: Maria Silva" required>
+                <input type="text" id="nome" name="nome" autocomplete="name" maxlength="100" placeholder="Ex.: Maria Silva" required>
             </div>
             <div class="form-field">
                 <label for="telefone">Telefone</label>
-                <input type="tel" id="telefone" name="telefone" autocomplete="tel" placeholder="(00) 00000-0000" required>
+                <input type="tel" id="telefone" name="telefone" autocomplete="tel" maxlength="20" placeholder="(00) 00000-0000" required>
             </div>
             <div class="form-field">
                 <label for="carro">Modelo do veículo</label>
-                <input type="text" id="carro" name="carro" placeholder="Ex.: Honda Civic" required>
+                <input type="text" id="carro" name="carro" maxlength="50" placeholder="Ex.: Honda Civic" required>
             </div>
             <div class="form-field">
                 <label for="placa">Placa</label>
-                <input type="text" id="placa" name="placa" placeholder="ABC-1D23" required>
+                <input type="text" id="placa" name="placa" maxlength="8" placeholder="ABC-1D23" required>
             </div>
             <div class="form-field form-field-wide">
                 <label for="problema">Como podemos ajudar?</label>
-                <textarea id="problema" name="problema" rows="5" placeholder="Descreva o problema ou o serviço que deseja realizar..." required></textarea>
+                <textarea id="problema" name="problema" rows="5" maxlength="5000" placeholder="Descreva o problema ou o serviço que deseja realizar..." required></textarea>
             </div>
             <button class="button form-submit" type="submit">Enviar solicitação <span aria-hidden="true">&rarr;</span></button>
         </form>

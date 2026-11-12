@@ -1,0 +1,27 @@
+<%- include('partials/header') %>
+
+<main class="auth-page container">
+    <section class="auth-panel" aria-labelledby="login-title">
+        <p class="eyebrow"><span class="eyebrow-line"></span> Acesso da equipe</p>
+        <h1 id="login-title">Painel da oficina</h1>
+        <p>Entre com uma conta administradora para gerenciar solicitações e cadastros.</p>
+
+        <% if (erro) { %>
+            <div class="notice notice-error" role="alert">Não foi possível entrar. Verifique os dados e tente novamente.</div>
+        <% } %>
+
+        <form class="auth-form" action="/admin/login" method="POST">
+            <div class="form-field">
+                <label for="email">E-mail</label>
+                <input type="email" id="email" name="email" autocomplete="username" maxlength="100" required>
+            </div>
+            <div class="form-field">
+                <label for="senha">Senha</label>
+                <input type="password" id="senha" name="senha" autocomplete="current-password" required>
+            </div>
+            <button class="button" type="submit">Entrar</button>
+        </form>
+    </section>
+</main>
+
+<%- include('partials/footer') %>

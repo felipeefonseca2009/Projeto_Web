@@ -1,38 +1,23 @@
-require("dotenv").config();
-
-const mysql = require("mysql2/promise");
-
 async function testarConexao() {
+    let db;
 
     try {
-
-        const conexao = await mysql.createConnection({
-            host: process.env.DB_HOST,
-            port: Number(process.env.DB_PORT),
-            user: process.env.DB_USER,
-            password: process.env.DB_PASSWORD,
-            database: process.env.DB_NAME,
-
-            ssl: {
-                rejectUnauthorized: false
-            }
-        });
-
-        const [resultado] = await conexao.query(
+        db = require("./db");
+        const [resultado] = await db.query(
             "SELECT 1 AS conectado"
         );
 
         console.log(resultado);
-
-        await conexao.end();
-
-        console.log("Conectado ao MySQL/Aiven com sucesso!");
+        console.log("Conectado ao MySQL com sucesso!");
 
     } catch (erro) {
-
         console.error("Erro na conexão:");
         console.error(erro.message);
-
+        process.exitCode = 1;
+    } finally {
+        if (db) {
+            await db.end();
+        }
     }
 }
 
