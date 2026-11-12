@@ -14,8 +14,23 @@ router.get("/servicos", (req, res) => {
     res.render("servicos", { enviado: false });
 });
 
-router.post("/servicos", (req, res) => {
-    res.render("servicos", { enviado: true });
+router.post("/servicos", async (req, res) => {
+    const { nome, telefone, email } = req.body;
+
+    if (!nome || !telefone || !email) {
+        return res.status(400).render("servicos", { enviado: false });
+    }
+
+    try {
+        await db.query(
+            "INSERT INTO clientes (nome, telefone, email) VALUES (?, ?, ?)",
+            [nome, telefone, email]
+        );
+        res.render("servicos", { enviado: true });
+    } catch (erro) {
+        console.error("Erro ao salvar cliente:", erro);
+        res.status(500).send("Erro ao salvar os dados");
+    }
 });
 
 // TESTE DE CONEXÃO COM O MYSQL
