@@ -1,85 +1,48 @@
 <%- include('partials/header') %>
 
-<main>
+<main class="form-page container">
+    <div class="form-intro">
+        <p class="eyebrow"><span class="eyebrow-line"></span> Vamos cuidar disso</p>
+        <h1>Conte para nós<br>o que seu carro precisa<span>.</span></h1>
+        <p>Deixe seus dados e uma breve descrição. Nossa equipe poderá entender melhor como ajudar.</p>
+        <div class="form-aside">
+            <span class="aside-number">01</span>
+            <p>Envios ainda não são gravados no banco de dados.</p>
+        </div>
+    </div>
 
-    <h2>Solicitação de Serviço</h2>
+    <section class="form-panel" aria-labelledby="form-title">
+        <h2 id="form-title">Solicitação de atendimento</h2>
+        <p class="form-subtitle">Preencha os campos para continuar.</p>
 
-    <p>
-        Preencha os dados abaixo para informar o que deseja verificar
-        em seu veículo.
-    </p>
+        <% if (enviado) { %>
+            <div class="notice" role="status">Formulário recebido nesta demonstração. Os dados não foram salvos.</div>
+        <% } %>
 
-    <form action="/servicos" method="POST">
-
-        <label for="nome">Nome:</label>
-        <br>
-        <input
-            type="text"
-            id="nome"
-            name="nome"
-            required
-        >
-
-        <br><br>
-
-        <label for="telefone">Telefone:</label>
-        <br>
-        <input
-            type="tel"
-            id="telefone"
-            name="telefone"
-            required
-        >
-
-        <br><br>
-
-        <label for="carro">Modelo do carro:</label>
-        <br>
-        <input
-            type="text"
-            id="carro"
-            name="carro"
-            placeholder="Ex: Honda Civic"
-            required
-        >
-
-        <br><br>
-
-        <label for="placa">Placa:</label>
-        <br>
-        <input
-            type="text"
-            id="placa"
-            name="placa"
-            required
-        >
-
-        <br><br>
-
-        <label for="problema">
-            O que deseja verificar no carro?
-        </label>
-
-        <br>
-
-        <textarea
-            id="problema"
-            name="problema"
-            rows="6"
-            cols="40"
-            placeholder="Descreva o problema ou o serviço que deseja realizar..."
-            required
-        ></textarea>
-
-        <br><br>
-
-        <button type="submit">
-            Solicitar Serviço
-        </button>
-
-    </form>
-    </form>
-
+        <form action="/servicos" method="POST" class="service-form">
+            <div class="form-field">
+                <label for="nome">Seu nome</label>
+                <input type="text" id="nome" name="nome" autocomplete="name" placeholder="Ex.: Maria Silva" required>
+            </div>
+            <div class="form-field">
+                <label for="telefone">Telefone</label>
+                <input type="tel" id="telefone" name="telefone" autocomplete="tel" placeholder="(00) 00000-0000" required>
+            </div>
+            <div class="form-field">
+                <label for="carro">Modelo do veículo</label>
+                <input type="text" id="carro" name="carro" placeholder="Ex.: Honda Civic" required>
+            </div>
+            <div class="form-field">
+                <label for="placa">Placa</label>
+                <input type="text" id="placa" name="placa" placeholder="ABC-1D23" required>
+            </div>
+            <div class="form-field form-field-wide">
+                <label for="problema">Como podemos ajudar?</label>
+                <textarea id="problema" name="problema" rows="5" placeholder="Descreva o problema ou o serviço que deseja realizar..." required></textarea>
+            </div>
+            <button class="button form-submit" type="submit">Enviar solicitação <span aria-hidden="true">&rarr;</span></button>
+        </form>
+    </section>
 </main>
 
 <%- include('partials/footer') %>

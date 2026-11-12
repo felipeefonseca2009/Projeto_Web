@@ -11,7 +11,26 @@ router.get("/", (req, res) => {
 // PÁGINA DE SERVIÇOS
 
 router.get("/servicos", (req, res) => {
-    res.render("servicos");
+    res.render("servicos", { enviado: false });
+});
+
+router.post("/servicos", async (req, res) => {
+    const { nome, telefone, email } = req.body;
+
+    if (!nome || !telefone || !email) {
+        return res.status(400).render("servicos", { enviado: false });
+    }
+
+    try {
+        await db.query(
+            "INSERT INTO clientes (nome, telefone, email) VALUES (?, ?, ?)",
+            [nome, telefone, email]
+        );
+        res.render("servicos", { enviado: true });
+    } catch (erro) {
+        console.error("Erro ao salvar cliente:", erro);
+        res.status(500).send("Erro ao salvar os dados");
+    }
 });
 
 // TESTE DE CONEXÃO COM O MYSQL
@@ -30,10 +49,7 @@ router.get("/teste-db", async (req, res) => {
 
         console.error("Erro no banco:", erro);
 
-        res.status(500).json({
-            erro: "Erro ao consultar o banco",
-            mensagem: erro.message
-        });
+        res.status(500).json({ erro: "Erro ao consultar o banco" });
 
     }
 
@@ -55,8 +71,6 @@ router.get("/clientes", async (req, res) => {
             ORDER BY nome
         `);
 
-        console.log(clientes);
-
         res.json(clientes);
 
     } catch (erro) {
@@ -64,8 +78,7 @@ router.get("/clientes", async (req, res) => {
         console.error("Erro ao consultar clientes:", erro);
 
         res.status(500).json({
-            erro: "Erro ao consultar clientes",
-            mensagem: erro.message
+            erro: "Erro ao consultar clientes"
         });
     }
 });
