@@ -1,0 +1,23 @@
+<%- include('partials/header') %>
+<%- include('partials/admin-nav', { active: 'inicio' }) %>
+
+<main class="admin-page container">
+    <header class="admin-heading">
+        <div>
+            <p class="eyebrow"><span class="eyebrow-line"></span> Central de operações</p>
+            <h1>Visão geral</h1>
+            <p>Resumo da oficina e acesso rápido às áreas de gestão.</p>
+        </div>
+    </header>
+
+    <%- include('partials/admin-notice') %>
+
+    <section class="admin-stats" aria-label="Resumo da oficina">
+        <a class="admin-stat" href="/admin/solicitacoes"><span>Solicitações pendentes</span><strong><%= resumo.pendentes %></strong><small>Abrir fila <span aria-hidden="true">&#8599;</span></small></a>
+        <a class="admin-stat" href="/admin/clientes"><span>Clientes cadastrados</span><strong><%= resumo.clientes %></strong><small>Ver clientes <span aria-hidden="true">&#8599;</span></small></a>
+        <a class="admin-stat" href="/admin/veiculos"><span>Veículos registrados</span><strong><%= resumo.veiculos %></strong><small>Ver veículos <span aria-hidden="true">&#8599;</span></small></a>
+        <a class="admin-stat" href="/admin/servicos"><span>Serviços registrados</span><strong><%= resumo.servicos %></strong><small>Ver serviços <span aria-hidden="true">&#8599;</span></small></a>
+    </section>
+</main>
+
+<%- include('partials/footer') %>

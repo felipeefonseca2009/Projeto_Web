@@ -27,9 +27,45 @@ function emailValido(email) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 100;
 }
 
+function cpfValido(cpf) {
+    const digitos = cpf.replace(/\D/g, "");
+
+    if (digitos.length !== 11 || /^(\d)\1{10}$/.test(digitos)) {
+        return false;
+    }
+
+    const calcularDigito = (base, pesoInicial) => {
+        const soma = base
+            .split("")
+            .reduce((total, digito, indice) => total + Number(digito) * (pesoInicial - indice), 0);
+        const resto = (soma * 10) % 11;
+        return resto === 10 ? 0 : resto;
+    };
+
+    return calcularDigito(digitos.slice(0, 9), 10) === Number(digitos[9]) &&
+        calcularDigito(digitos.slice(0, 10), 11) === Number(digitos[10]);
+}
+
 function senhaValida(senha) {
     const bytes = Buffer.byteLength(senha, "utf8");
     return bytes >= 12 && bytes <= 72;
+}
+
+const mensagensAdmin = {
+    processamento: "Não foi possível processar a solicitação. Confira os dados e tente novamente.",
+    mecanico: "Não foi possível cadastrar o mecânico. Confira os campos.",
+    dados: "Preencha corretamente os dados necessários para abrir o serviço.",
+    sucesso: "Solicitação processada e serviço criado.",
+    concluida: "Solicitação marcada como concluída.",
+    concluir: "Não foi possível concluir. Verifique se a solicitação está em atendimento.",
+    mecanicoCriado: "Mecânico cadastrado com sucesso."
+};
+
+function feedbackAdmin(req) {
+    return {
+        mensagem: mensagensAdmin[req.query.aviso] || "",
+        erro: Boolean(mensagensAdmin[req.query.erro])
+    };
 }
 
 // PÁGINA PRINCIPAL
@@ -51,17 +87,18 @@ router.get("/cadastro", (req, res) => {
 router.post("/cadastro", async (req, res) => {
     const nome = limpar(req.body.nome);
     const email = limpar(req.body.email).toLowerCase();
+    const cpf = limpar(req.body.cpf).replace(/\D/g, "");
     const senha = typeof req.body.senha === "string" ? req.body.senha : "";
 
-    if (!nome || nome.length > 100 || !emailValido(email) || !senhaValida(senha)) {
+    if (!nome || nome.length > 100 || !emailValido(email) || !cpfValido(cpf) || !senhaValida(senha)) {
         return res.status(400).render("cadastro", { erro: true });
     }
 
     try {
         const senhaHash = await bcrypt.hash(senha, 12);
         const [resultado] = await db.execute(
-            "INSERT INTO usuarios (nome, email, senha, tipo) VALUES (?, ?, ?, 'CLIENTE')",
-            [nome, email, senhaHash]
+            "INSERT INTO usuarios (nome, email, cpf, senha, tipo) VALUES (?, ?, ?, ?, 'CLIENTE')",
+            [nome, email, cpf, senhaHash]
         );
 
         req.session = {
@@ -276,55 +313,6 @@ router.post("/admin/logout", requireAdmin, (req, res) => {
 
 router.get("/admin", requireAdmin, async (req, res) => {
     try {
-        const [solicitacoes] = await db.query(`
-            SELECT s.id_solicitacao, s.id_usuario, s.nome, s.telefone,
-                     s.marca_veiculo, s.modelo_veiculo, s.ano_veiculo,
-                     s.placa, s.descricao_problema,
-                   s.status, s.data_solicitacao, u.email AS email_cliente
-            FROM solicitacoes s
-            LEFT JOIN usuarios u ON u.id_usuario = s.id_usuario
-            WHERE s.status = 'PENDENTE'
-            ORDER BY s.data_solicitacao ASC
-            LIMIT 50
-        `);
-        const [solicitacoesHistorico] = await db.query(`
-                 SELECT id_solicitacao, nome, marca_veiculo, modelo_veiculo,
-                     ano_veiculo, placa,
-                   descricao_problema, status, data_solicitacao
-            FROM solicitacoes
-            WHERE status <> 'PENDENTE'
-            ORDER BY data_solicitacao DESC
-            LIMIT 50
-        `);
-        const [mecanicos] = await db.query(`
-            SELECT id_mecanico, nome, especialidade
-            FROM mecanicos
-            ORDER BY nome
-        `);
-        const [clientes] = await db.query(`
-            SELECT id_cliente, nome, telefone, email
-            FROM clientes
-            ORDER BY id_cliente DESC
-            LIMIT 20
-        `);
-        const [veiculos] = await db.query(`
-            SELECT v.id_veiculo, v.placa, v.marca, v.modelo, v.ano, c.nome AS cliente
-            FROM veiculos v
-            INNER JOIN clientes c ON c.id_cliente = v.id_cliente
-            ORDER BY v.id_veiculo DESC
-            LIMIT 20
-        `);
-        const [servicos] = await db.query(`
-                        SELECT s.id_servico, s.data_servico, s.preco_servico,
-                                     s.forma_pagamento, s.descricao_problema,
-                   c.nome AS cliente, v.placa, v.modelo, m.nome AS mecanico
-            FROM servicos s
-            INNER JOIN clientes c ON c.id_cliente = s.id_cliente
-            INNER JOIN veiculos v ON v.id_veiculo = s.id_veiculo
-            INNER JOIN mecanicos m ON m.id_mecanico = s.id_mecanico
-            ORDER BY s.data_servico DESC
-            LIMIT 20
-        `);
         const [resumos] = await db.query(`
             SELECT
                 (SELECT COUNT(*) FROM solicitacoes WHERE status = 'PENDENTE') AS pendentes,
@@ -333,26 +321,9 @@ router.get("/admin", requireAdmin, async (req, res) => {
                 (SELECT COUNT(*) FROM servicos) AS servicos
         `);
 
-        const mensagens = {
-            processamento: "Não foi possível processar a solicitação. Confira os dados e tente novamente.",
-            mecanico: "Não foi possível cadastrar o mecânico. Confira os campos.",
-            dados: "Preencha corretamente os dados necessários para abrir o serviço.",
-            sucesso: "Solicitação processada e serviço criado.",
-            concluida: "Solicitação marcada como concluída.",
-            concluir: "Não foi possível concluir. Verifique se a solicitação está em atendimento.",
-            mecanicoCriado: "Mecânico cadastrado com sucesso."
-        };
-
-        return res.render("admin", {
-            solicitacoes,
-            solicitacoesHistorico,
-            mecanicos,
-            clientes,
-            veiculos,
-            servicos,
+        return res.render("admin-inicio", {
             resumo: resumos[0],
-            mensagem: mensagens[req.query.aviso] || "",
-            erro: Boolean(mensagens[req.query.erro])
+            ...feedbackAdmin(req)
         });
     } catch (erro) {
         console.error("Erro ao carregar painel administrativo:", erro.message);
@@ -360,11 +331,123 @@ router.get("/admin", requireAdmin, async (req, res) => {
     }
 });
 
+router.get("/admin/solicitacoes", requireAdmin, async (req, res) => {
+    try {
+        const [solicitacoes] = await db.query(`
+            SELECT s.id_solicitacao, s.id_usuario, s.nome, s.telefone,
+                   s.marca_veiculo, s.modelo_veiculo, s.ano_veiculo,
+                   s.placa, s.descricao_problema, s.status,
+                   s.data_solicitacao, u.email AS email_cliente
+            FROM solicitacoes s
+            LEFT JOIN usuarios u ON u.id_usuario = s.id_usuario
+            WHERE s.status = 'PENDENTE'
+            ORDER BY s.data_solicitacao ASC
+            LIMIT 50
+        `);
+        const [solicitacoesHistorico] = await db.query(`
+            SELECT id_solicitacao, nome, marca_veiculo, modelo_veiculo,
+                   ano_veiculo, placa, descricao_problema, status,
+                   data_solicitacao
+            FROM solicitacoes
+            WHERE status <> 'PENDENTE'
+            ORDER BY data_solicitacao DESC
+            LIMIT 50
+        `);
+        const [mecanicos] = await db.query(
+            "SELECT id_mecanico, nome, especialidade FROM mecanicos ORDER BY nome"
+        );
+
+        return res.render("admin-solicitacoes", {
+            solicitacoes,
+            solicitacoesHistorico,
+            mecanicos,
+            ...feedbackAdmin(req)
+        });
+    } catch (erro) {
+        console.error("Erro ao carregar solicitações administrativas:", erro.message);
+        return res.status(500).send("Não foi possível carregar as solicitações.");
+    }
+});
+
+router.get("/admin/clientes", requireAdmin, async (req, res) => {
+    try {
+        const [clientes] = await db.query(`
+            SELECT c.id_cliente, c.nome, c.telefone, c.email,
+                   COALESCE(c.cpf, u.cpf) AS cpf
+            FROM clientes c
+            LEFT JOIN usuarios u ON u.id_usuario = c.id_usuario
+            ORDER BY c.id_cliente DESC
+        `);
+
+        return res.render("admin-clientes", { clientes });
+    } catch (erro) {
+        console.error("Erro ao carregar clientes:", erro.message);
+        return res.status(500).send("Não foi possível carregar os clientes.");
+    }
+});
+
+router.get("/admin/veiculos", requireAdmin, async (req, res) => {
+    try {
+        const [veiculos] = await db.query(`
+            SELECT v.id_veiculo, v.placa, v.marca, v.modelo, v.ano,
+                   c.nome AS cliente
+            FROM veiculos v
+            INNER JOIN clientes c ON c.id_cliente = v.id_cliente
+            ORDER BY v.id_veiculo DESC
+        `);
+
+        return res.render("admin-veiculos", { veiculos });
+    } catch (erro) {
+        console.error("Erro ao carregar veículos:", erro.message);
+        return res.status(500).send("Não foi possível carregar os veículos.");
+    }
+});
+
+router.get("/admin/servicos", requireAdmin, async (req, res) => {
+    try {
+        const [servicos] = await db.query(`
+            SELECT s.id_servico, s.data_servico, s.preco_servico,
+                   s.forma_pagamento, s.descricao_problema,
+                   c.nome AS cliente, v.placa, v.modelo, m.nome AS mecanico,
+                   r.status AS status_solicitacao
+            FROM servicos s
+            INNER JOIN clientes c ON c.id_cliente = s.id_cliente
+            INNER JOIN veiculos v ON v.id_veiculo = s.id_veiculo
+            INNER JOIN mecanicos m ON m.id_mecanico = s.id_mecanico
+            LEFT JOIN solicitacoes r ON r.id_solicitacao = s.id_solicitacao
+            ORDER BY s.data_servico DESC
+        `);
+
+        return res.render("admin-servicos", { servicos });
+    } catch (erro) {
+        console.error("Erro ao carregar serviços:", erro.message);
+        return res.status(500).send("Não foi possível carregar os serviços.");
+    }
+});
+
+router.get("/admin/mecanicos", requireAdmin, async (req, res) => {
+    try {
+        const [mecanicos] = await db.query(`
+            SELECT id_mecanico, nome, telefone, email, especialidade
+            FROM mecanicos
+            ORDER BY nome
+        `);
+
+        return res.render("admin-mecanicos", {
+            mecanicos,
+            ...feedbackAdmin(req)
+        });
+    } catch (erro) {
+        console.error("Erro ao carregar mecânicos:", erro.message);
+        return res.status(500).send("Não foi possível carregar os mecânicos.");
+    }
+});
+
 router.post("/admin/solicitacoes/:id/concluir", requireAdmin, async (req, res) => {
     const solicitacaoId = Number(req.params.id);
 
     if (!Number.isInteger(solicitacaoId) || solicitacaoId < 1) {
-        return res.redirect("/admin?erro=concluir");
+        return res.redirect("/admin/solicitacoes?erro=concluir");
     }
 
     try {
@@ -374,13 +457,13 @@ router.post("/admin/solicitacoes/:id/concluir", requireAdmin, async (req, res) =
         );
 
         if (resultado.affectedRows !== 1) {
-            return res.redirect("/admin?erro=concluir");
+            return res.redirect("/admin/solicitacoes?erro=concluir");
         }
 
-        return res.redirect("/admin?aviso=concluida");
+        return res.redirect("/admin/solicitacoes?aviso=concluida");
     } catch (erro) {
         console.error("Erro ao concluir solicitação:", erro.message);
-        return res.redirect("/admin?erro=concluir");
+        return res.redirect("/admin/solicitacoes?erro=concluir");
     }
 });
 
@@ -394,7 +477,7 @@ router.post("/admin/mecanicos", requireAdmin, async (req, res) => {
         !nome || !telefone || !email || nome.length > 100 ||
         telefone.length > 20 || email.length > 100 || especialidade.length > 50
     ) {
-        return res.redirect("/admin?erro=mecanico");
+        return res.redirect("/admin/mecanicos?erro=mecanico");
     }
 
     try {
@@ -402,10 +485,10 @@ router.post("/admin/mecanicos", requireAdmin, async (req, res) => {
             "INSERT INTO mecanicos (nome, telefone, email, especialidade) VALUES (?, ?, ?, ?)",
             [nome, telefone, email, especialidade || null]
         );
-        return res.redirect("/admin?aviso=mecanicoCriado");
+        return res.redirect("/admin/mecanicos?aviso=mecanicoCriado");
     } catch (erro) {
         console.error("Erro ao cadastrar mecânico:", erro.message);
-        return res.redirect("/admin?erro=mecanico");
+        return res.redirect("/admin/mecanicos?erro=mecanico");
     }
 });
 
@@ -428,7 +511,7 @@ router.post("/admin/solicitacoes/:id/processar", requireAdmin, async (req, res) 
         !/^\d{1,8}(?:\.\d{1,2})?$/.test(preco) ||
         !formaPagamento || formaPagamento.length > 50
     ) {
-        return res.redirect("/admin?erro=dados");
+        return res.redirect("/admin/solicitacoes?erro=dados");
     }
 
     let conexao;
@@ -451,12 +534,13 @@ router.post("/admin/solicitacoes/:id/processar", requireAdmin, async (req, res) 
             throw new Error("Solicitação inexistente ou já processada.");
         }
 
-        let idUsuario = solicitacao.id_usuario;
+        const idUsuario = solicitacao.id_usuario;
         let emailCliente = emailInformado;
+        let cpfCliente = null;
 
         if (idUsuario) {
             const [usuarios] = await conexao.execute(
-                "SELECT id_usuario, email FROM usuarios WHERE id_usuario = ? AND tipo = 'CLIENTE' FOR UPDATE",
+                "SELECT id_usuario, email, cpf FROM usuarios WHERE id_usuario = ? AND tipo = 'CLIENTE' FOR UPDATE",
                 [idUsuario]
             );
 
@@ -465,6 +549,7 @@ router.post("/admin/solicitacoes/:id/processar", requireAdmin, async (req, res) 
             }
 
             emailCliente = usuarios[0].email;
+            cpfCliente = usuarios[0].cpf;
         } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailCliente) || emailCliente.length > 100) {
             throw new Error("Informe um e-mail válido para a solicitação antiga.");
         }
@@ -482,14 +567,14 @@ router.post("/admin/solicitacoes/:id/processar", requireAdmin, async (req, res) 
 
         if (idUsuario) {
             [clientesEncontrados] = await conexao.execute(
-                "SELECT id_cliente, id_usuario FROM clientes WHERE id_usuario = ? FOR UPDATE",
+                "SELECT id_cliente, id_usuario, cpf FROM clientes WHERE id_usuario = ? FOR UPDATE",
                 [idUsuario]
             );
         }
 
         if (!clientesEncontrados[0]) {
             [clientesEncontrados] = await conexao.execute(
-                "SELECT id_cliente, id_usuario FROM clientes WHERE LOWER(email) = ? ORDER BY id_cliente LIMIT 1 FOR UPDATE",
+                "SELECT id_cliente, id_usuario, cpf FROM clientes WHERE LOWER(email) = ? ORDER BY id_cliente LIMIT 1 FOR UPDATE",
                 [emailCliente]
             );
         }
@@ -502,14 +587,19 @@ router.post("/admin/solicitacoes/:id/processar", requireAdmin, async (req, res) 
             idCliente = clientesEncontrados[0].id_cliente;
             if (idUsuario && !clientesEncontrados[0].id_usuario) {
                 await conexao.execute(
-                    "UPDATE clientes SET id_usuario = ? WHERE id_cliente = ?",
-                    [idUsuario, idCliente]
+                    "UPDATE clientes SET id_usuario = ?, cpf = ? WHERE id_cliente = ?",
+                    [idUsuario, cpfCliente, idCliente]
+                );
+            } else if (idUsuario) {
+                await conexao.execute(
+                    "UPDATE clientes SET cpf = ? WHERE id_cliente = ?",
+                    [cpfCliente, idCliente]
                 );
             }
         } else {
             const [novoCliente] = await conexao.execute(
-                "INSERT INTO clientes (id_usuario, nome, telefone, email) VALUES (?, ?, ?, ?)",
-                [idUsuario, solicitacao.nome, solicitacao.telefone, emailCliente]
+                "INSERT INTO clientes (id_usuario, cpf, nome, telefone, email) VALUES (?, ?, ?, ?, ?)",
+                [idUsuario, idUsuario ? cpfCliente : null, solicitacao.nome, solicitacao.telefone, emailCliente]
             );
             idCliente = novoCliente.insertId;
         }
@@ -551,13 +641,13 @@ router.post("/admin/solicitacoes/:id/processar", requireAdmin, async (req, res) 
         );
         await conexao.commit();
 
-        return res.redirect("/admin?aviso=sucesso");
+        return res.redirect("/admin/solicitacoes?aviso=sucesso");
     } catch (erro) {
         if (conexao) {
             await conexao.rollback();
         }
         console.error("Erro ao processar solicitação:", erro.message);
-        return res.redirect("/admin?erro=processamento");
+        return res.redirect("/admin/solicitacoes?erro=processamento");
     } finally {
         if (conexao) {
             conexao.release();
@@ -598,7 +688,8 @@ router.get("/clientes", requireAdmin, async (req, res) => {
                 id_cliente,
                 nome,
                 telefone,
-                email
+                email,
+                cpf
             FROM clientes
             ORDER BY nome
         `);

@@ -1,0 +1,17 @@
+<%- include('partials/header') %>
+<%- include('partials/admin-nav', { active: 'veiculos' }) %>
+
+<main class="admin-page container">
+    <header class="admin-heading"><div><p class="eyebrow"><span class="eyebrow-line"></span> Cadastros</p><h1>Veículos</h1><p>Veículos associados aos clientes da oficina.</p></div></header>
+    <section class="admin-section admin-section-first">
+        <div class="admin-table-wrap"><table class="admin-table">
+            <thead><tr><th>Placa</th><th>Marca e modelo</th><th>Ano</th><th>Cliente</th></tr></thead>
+            <tbody>
+                <% veiculos.forEach((veiculo) => { %><tr><td><strong><%= veiculo.placa %></strong></td><td><%= veiculo.marca %> <%= veiculo.modelo %></td><td><%= veiculo.ano %></td><td><%= veiculo.cliente %></td></tr><% }) %>
+                <% if (veiculos.length === 0) { %><tr><td colspan="4">Nenhum veículo cadastrado.</td></tr><% } %>
+            </tbody>
+        </table></div>
+    </section>
+</main>
+
+<%- include('partials/footer') %>

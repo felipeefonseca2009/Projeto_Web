@@ -1,0 +1,5 @@
+ALTER TABLE usuarios
+    ADD COLUMN cpf VARCHAR(11) NULL UNIQUE AFTER email;
+
+ALTER TABLE clientes
+    DROP COLUMN cnpj;

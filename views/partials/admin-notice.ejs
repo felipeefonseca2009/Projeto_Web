@@ -1,0 +1,3 @@
+<% if (typeof mensagem !== 'undefined' && mensagem) { %>
+    <div class="admin-notice <%= erro ? 'admin-notice-error' : '' %>" role="<%= erro ? 'alert' : 'status' %>"><%= mensagem %></div>
+<% } %>

@@ -1,0 +1,90 @@
+<%- include('partials/header') %>
+<%- include('partials/admin-nav', { active: 'solicitacoes' }) %>
+
+<main class="admin-page container">
+    <header class="admin-heading">
+        <div>
+            <p class="eyebrow"><span class="eyebrow-line"></span> Atendimento</p>
+            <h1>Solicitações</h1>
+            <p>Revise os pedidos, abra atendimentos e acompanhe o histórico.</p>
+        </div>
+    </header>
+    <%- include('partials/admin-notice') %>
+
+    <section class="admin-section" aria-labelledby="pendentes-title">
+        <h2 id="pendentes-title">Fila pendente <span class="section-count"><%= solicitacoes.length %></span></h2>
+        <% if (solicitacoes.length === 0) { %><p class="admin-empty">Não há solicitações aguardando análise.</p><% } %>
+        <% solicitacoes.forEach((solicitacao) => { %>
+            <article class="admin-request">
+                <div class="admin-request-summary">
+                    <div>
+                        <strong><%= solicitacao.nome %></strong>
+                        <span><%= solicitacao.telefone %></span>
+                        <span><%= solicitacao.email_cliente || 'Solicitação antiga sem conta vinculada' %></span>
+                        <span>Recebida em <%= new Date(solicitacao.data_solicitacao).toLocaleString('pt-BR') %></span>
+                    </div>
+                    <div>
+                        <strong><%= solicitacao.marca_veiculo || '' %> <%= solicitacao.modelo_veiculo %></strong>
+                        <span><%= solicitacao.ano_veiculo || '' %></span>
+                        <span>Placa: <%= solicitacao.placa %></span>
+                    </div>
+                    <p><%= solicitacao.descricao_problema %></p>
+                </div>
+                <details class="admin-process">
+                    <summary>Converter em atendimento</summary>
+                    <% if (mecanicos.length === 0) { %>
+                        <p class="admin-empty">Cadastre um mecânico antes de abrir o serviço.</p>
+                    <% } else { %>
+                        <form class="admin-form" action="/admin/solicitacoes/<%= solicitacao.id_solicitacao %>/processar" method="POST">
+                            <% if (!solicitacao.id_usuario) { %>
+                                <div class="form-field"><label for="email-<%= solicitacao.id_solicitacao %>">E-mail do cliente</label><input type="email" id="email-<%= solicitacao.id_solicitacao %>" name="email" maxlength="100" required></div>
+                            <% } %>
+                            <div class="form-field"><label for="marca-<%= solicitacao.id_solicitacao %>">Marca</label><input type="text" id="marca-<%= solicitacao.id_solicitacao %>" name="marca" maxlength="30" value="<%= solicitacao.marca_veiculo || '' %>" required></div>
+                            <div class="form-field"><label for="modelo-<%= solicitacao.id_solicitacao %>">Modelo</label><input type="text" id="modelo-<%= solicitacao.id_solicitacao %>" name="modelo" maxlength="50" value="<%= solicitacao.modelo_veiculo || '' %>" required></div>
+                            <div class="form-field"><label for="ano-<%= solicitacao.id_solicitacao %>">Ano</label><input type="number" id="ano-<%= solicitacao.id_solicitacao %>" name="ano" min="1900" max="2100" value="<%= solicitacao.ano_veiculo || '' %>" required></div>
+                            <div class="form-field">
+                                <label for="mecanico-<%= solicitacao.id_solicitacao %>">Mecânico</label>
+                                <select id="mecanico-<%= solicitacao.id_solicitacao %>" name="id_mecanico" required>
+                                    <option value="">Selecione</option>
+                                    <% mecanicos.forEach((mecanico) => { %><option value="<%= mecanico.id_mecanico %>"><%= mecanico.nome %><%= mecanico.especialidade ? ` - ${mecanico.especialidade}` : '' %></option><% }) %>
+                                </select>
+                            </div>
+                            <div class="form-field"><label for="preco-<%= solicitacao.id_solicitacao %>">Preço previsto (R$)</label><input type="number" id="preco-<%= solicitacao.id_solicitacao %>" name="preco_servico" min="0.01" max="99999999.99" step="0.01" required></div>
+                            <div class="form-field">
+                                <label for="pagamento-<%= solicitacao.id_solicitacao %>">Pagamento</label>
+                                <select id="pagamento-<%= solicitacao.id_solicitacao %>" name="forma_pagamento" required>
+                                    <option value="">Selecione</option><option value="A DEFINIR">A definir</option><option value="PIX">Pix</option><option value="Cartão de crédito">Cartão de crédito</option><option value="Cartão de débito">Cartão de débito</option><option value="Dinheiro">Dinheiro</option><option value="Transferência">Transferência</option>
+                                </select>
+                            </div>
+                            <button class="button" type="submit">Criar atendimento</button>
+                        </form>
+                    <% } %>
+                </details>
+            </article>
+        <% }) %>
+    </section>
+
+    <section class="admin-section" aria-labelledby="historico-title">
+        <h2 id="historico-title">Histórico processado <span class="section-count"><%= solicitacoesHistorico.length %></span></h2>
+        <div class="admin-table-wrap">
+            <table class="admin-table">
+                <thead><tr><th>Data</th><th>Status</th><th>Cliente</th><th>Veículo</th><th>Problema relatado</th><th>Ação</th></tr></thead>
+                <tbody>
+                    <% solicitacoesHistorico.forEach((solicitacao) => { %>
+                        <tr>
+                            <td><%= new Date(solicitacao.data_solicitacao).toLocaleDateString('pt-BR') %></td>
+                            <td><span class="status-pill status-<%= solicitacao.status.toLowerCase() %>"><%= solicitacao.status.replace('_', ' ') %></span></td>
+                            <td><%= solicitacao.nome %></td>
+                            <td><%= solicitacao.marca_veiculo || '' %> <%= solicitacao.modelo_veiculo %> <%= solicitacao.ano_veiculo || '' %><small><%= solicitacao.placa %></small></td>
+                            <td><%= solicitacao.descricao_problema %></td>
+                            <td><% if (solicitacao.status === 'EM_ATENDIMENTO') { %><form action="/admin/solicitacoes/<%= solicitacao.id_solicitacao %>/concluir" method="POST"><button class="button button-small" type="submit">Concluir</button></form><% } %></td>
+                        </tr>
+                    <% }) %>
+                    <% if (solicitacoesHistorico.length === 0) { %><tr><td colspan="6">Nenhuma solicitação processada.</td></tr><% } %>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</main>
+
+<%- include('partials/footer') %>

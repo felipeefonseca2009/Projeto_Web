@@ -1,0 +1,31 @@
+<%- include('partials/header') %>
+<%- include('partials/admin-nav', { active: 'mecanicos' }) %>
+
+<main class="admin-page container">
+    <header class="admin-heading"><div><p class="eyebrow"><span class="eyebrow-line"></span> Equipe</p><h1>Mecânicos</h1><p>Cadastre e consulte os profissionais da oficina.</p></div></header>
+    <%- include('partials/admin-notice') %>
+
+    <section class="admin-section admin-section-first" aria-labelledby="novo-mecanico-title">
+        <h2 id="novo-mecanico-title">Novo mecânico</h2>
+        <form class="admin-mechanic-form" action="/admin/mecanicos" method="POST">
+            <div class="form-field"><label for="mecanico-nome">Nome</label><input type="text" id="mecanico-nome" name="nome" maxlength="100" required></div>
+            <div class="form-field"><label for="mecanico-telefone">Telefone</label><input type="tel" id="mecanico-telefone" name="telefone" maxlength="20" required></div>
+            <div class="form-field"><label for="mecanico-email">E-mail</label><input type="email" id="mecanico-email" name="email" maxlength="100" required></div>
+            <div class="form-field"><label for="mecanico-especialidade">Especialidade</label><input type="text" id="mecanico-especialidade" name="especialidade" maxlength="50"></div>
+            <button class="button" type="submit">Cadastrar mecânico</button>
+        </form>
+    </section>
+
+    <section class="admin-section" aria-labelledby="equipe-title">
+        <h2 id="equipe-title">Equipe cadastrada <span class="section-count"><%= mecanicos.length %></span></h2>
+        <div class="admin-table-wrap"><table class="admin-table">
+            <thead><tr><th>Nome</th><th>Especialidade</th><th>Telefone</th><th>E-mail</th></tr></thead>
+            <tbody>
+                <% mecanicos.forEach((mecanico) => { %><tr><td><strong><%= mecanico.nome %></strong></td><td><%= mecanico.especialidade || 'Não informada' %></td><td><%= mecanico.telefone %></td><td><%= mecanico.email %></td></tr><% }) %>
+                <% if (mecanicos.length === 0) { %><tr><td colspan="4">Nenhum mecânico cadastrado.</td></tr><% } %>
+            </tbody>
+        </table></div>
+    </section>
+</main>
+
+<%- include('partials/footer') %>
