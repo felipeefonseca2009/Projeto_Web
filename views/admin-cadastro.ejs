@@ -1,0 +1,33 @@
+<%- include('partials/header') %>
+
+<main class="auth-page container">
+    <section class="auth-panel" aria-labelledby="signup-title">
+        <p class="eyebrow"><span class="eyebrow-line"></span> Cadastro administrativo</p>
+        <h1 id="signup-title">Criar acesso da oficina</h1>
+        <p>Cadastre uma conta para gerenciar solicitações, mecânicos e serviços.</p>
+        <div class="notice notice-error" role="note">Este cadastro é público para fins de demonstração. Qualquer pessoa pode criar uma conta administradora.</div>
+
+        <% if (erro) { %>
+            <div class="notice notice-error" role="alert">Não foi possível criar o acesso. Confira os dados ou tente entrar se o e-mail já estiver cadastrado.</div>
+        <% } %>
+
+        <form class="auth-form" action="/admin/cadastro" method="POST">
+            <div class="form-field">
+                <label for="nome">Nome</label>
+                <input type="text" id="nome" name="nome" autocomplete="name" maxlength="100" required>
+            </div>
+            <div class="form-field">
+                <label for="email">E-mail</label>
+                <input type="email" id="email" name="email" autocomplete="email" maxlength="100" required>
+            </div>
+            <div class="form-field">
+                <label for="senha">Senha (mínimo 12 caracteres)</label>
+                <input type="password" id="senha" name="senha" autocomplete="new-password" minlength="12" maxlength="72" required>
+            </div>
+            <button class="button" type="submit">Criar acesso administrativo</button>
+        </form>
+        <p class="auth-alternative">Já tem acesso? <a href="/admin/login">Entrar</a></p>
+    </section>
+</main>
+
+<%- include('partials/footer') %>

@@ -25,6 +25,10 @@ app.use(cookieSession({
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production"
 }));
+app.use((req, res, next) => {
+    res.locals.currentUser = req.session?.user || null;
+    next();
+});
 app.use("/", routes);
 
 const port = Number(process.env.PORT) || 3000;

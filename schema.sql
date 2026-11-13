@@ -1,4 +1,3 @@
-USE defaultdb;
 -- ========================================================
 -- CADASTROS BASE E ACESSO
 -- ========================================================
@@ -8,7 +7,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
     nome VARCHAR(100) NOT NULL,
     email VARCHAR(100) NOT NULL UNIQUE,
     senha VARCHAR(255) NOT NULL,
-    tipo ENUM('ADM', 'VENDEDOR', 'MECANICO') NOT NULL
+    tipo ENUM('ADM', 'VENDEDOR', 'MECANICO', 'CLIENTE') NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS clientes (
@@ -58,11 +57,13 @@ CREATE TABLE IF NOT EXISTS servicos (
 
 CREATE TABLE IF NOT EXISTS solicitacoes (
     id_solicitacao INT AUTO_INCREMENT PRIMARY KEY,
+    id_usuario INT NULL,
     nome VARCHAR(100) NOT NULL,
     telefone VARCHAR(20) NOT NULL,
     modelo_veiculo VARCHAR(50) NOT NULL,
     placa VARCHAR(8) NOT NULL,
     descricao_problema TEXT NOT NULL,
     status ENUM('PENDENTE', 'EM_ATENDIMENTO', 'CONCLUIDA', 'CANCELADA') NOT NULL DEFAULT 'PENDENTE',
-    data_solicitacao DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    data_solicitacao DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_solicitacoes_usuario FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario)
 );

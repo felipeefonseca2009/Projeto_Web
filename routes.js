@@ -11,8 +11,25 @@ function requireAdmin(req, res, next) {
     return next();
 }
 
+function requireCustomer(req, res, next) {
+    if (req.session?.user?.tipo !== "CLIENTE") {
+        return res.redirect("/login?necessario=1");
+    }
+
+    return next();
+}
+
 function limpar(valor) {
     return typeof valor === "string" ? valor.trim() : "";
+}
+
+function emailValido(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 100;
+}
+
+function senhaValida(senha) {
+    const bytes = Buffer.byteLength(senha, "utf8");
+    return bytes >= 12 && bytes <= 72;
 }
 
 // PÁGINA PRINCIPAL
@@ -21,16 +38,111 @@ router.get("/", (req, res) => {
     res.render("principal");
 });
 
+// CONTAS DE CLIENTES
+
+router.get("/cadastro", (req, res) => {
+    if (req.session?.user?.tipo === "CLIENTE") {
+        return res.redirect("/servicos");
+    }
+
+    return res.render("cadastro", { erro: false });
+});
+
+router.post("/cadastro", async (req, res) => {
+    const nome = limpar(req.body.nome);
+    const email = limpar(req.body.email).toLowerCase();
+    const senha = typeof req.body.senha === "string" ? req.body.senha : "";
+
+    if (!nome || nome.length > 100 || !emailValido(email) || !senhaValida(senha)) {
+        return res.status(400).render("cadastro", { erro: true });
+    }
+
+    try {
+        const senhaHash = await bcrypt.hash(senha, 12);
+        const [resultado] = await db.execute(
+            "INSERT INTO usuarios (nome, email, senha, tipo) VALUES (?, ?, ?, 'CLIENTE')",
+            [nome, email, senhaHash]
+        );
+
+        req.session = {
+            user: {
+                id: resultado.insertId,
+                tipo: "CLIENTE",
+                nome
+            }
+        };
+
+        return res.redirect("/servicos");
+    } catch (erro) {
+        if (erro.code === "ER_DUP_ENTRY") {
+            return res.status(409).render("cadastro", { erro: true });
+        }
+
+        console.error("Erro ao cadastrar cliente:", erro.message);
+        return res.status(500).render("cadastro", { erro: true });
+    }
+});
+
+router.get("/login", (req, res) => {
+    if (req.session?.user?.tipo === "CLIENTE") {
+        return res.redirect("/servicos");
+    }
+
+    return res.render("login", {
+        erro: req.query.erro === "1",
+        necessario: req.query.necessario === "1"
+    });
+});
+
+router.post("/login", async (req, res) => {
+    const email = limpar(req.body.email).toLowerCase();
+    const senha = typeof req.body.senha === "string" ? req.body.senha : "";
+
+    if (!emailValido(email) || !senhaValida(senha)) {
+        return res.redirect("/login?erro=1");
+    }
+
+    try {
+        const [usuarios] = await db.execute(
+            "SELECT id_usuario, nome, senha, tipo FROM usuarios WHERE email = ? LIMIT 1",
+            [email]
+        );
+        const usuario = usuarios[0];
+
+        if (!usuario || usuario.tipo !== "CLIENTE" || !(await bcrypt.compare(senha, usuario.senha))) {
+            return res.redirect("/login?erro=1");
+        }
+
+        req.session = {
+            user: {
+                id: usuario.id_usuario,
+                tipo: usuario.tipo,
+                nome: usuario.nome
+            }
+        };
+
+        return res.redirect("/servicos");
+    } catch (erro) {
+        console.error("Erro ao autenticar cliente:", erro.message);
+        return res.status(500).render("login", { erro: true, necessario: false });
+    }
+});
+
+router.post("/logout", requireCustomer, (req, res) => {
+    req.session = null;
+    res.redirect("/login");
+});
+
 // PÁGINA DE SERVIÇOS
 
-router.get("/servicos", (req, res) => {
+router.get("/servicos", requireCustomer, (req, res) => {
     res.render("servicos", {
         enviado: req.query.enviado === "1",
         erro: req.query.erro === "1"
     });
 });
 
-router.post("/servicos", async (req, res) => {
+router.post("/servicos", requireCustomer, async (req, res) => {
 
     const nome = limpar(req.body.nome);
     const telefone = limpar(req.body.telefone);
@@ -51,9 +163,9 @@ router.post("/servicos", async (req, res) => {
 
     try {
         await db.execute(
-            `INSERT INTO solicitacoes (nome, telefone, modelo_veiculo, placa, descricao_problema)
-             VALUES (?, ?, ?, ?, ?)`,
-            [nome, telefone, veiculo, placa, problema]
+            `INSERT INTO solicitacoes (id_usuario, nome, telefone, modelo_veiculo, placa, descricao_problema)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [req.session.user.id, nome, telefone, veiculo, placa, problema]
         );
 
         return res.redirect(303, "/servicos?enviado=1");
@@ -69,6 +181,49 @@ router.post("/servicos", async (req, res) => {
 
 // ACESSO ADMINISTRATIVO
 
+router.get("/admin/cadastro", (req, res) => {
+    if (req.session?.user?.tipo === "ADM") {
+        return res.redirect("/admin");
+    }
+
+    return res.render("admin-cadastro", { erro: false });
+});
+
+router.post("/admin/cadastro", async (req, res) => {
+    const nome = limpar(req.body.nome);
+    const email = limpar(req.body.email).toLowerCase();
+    const senha = typeof req.body.senha === "string" ? req.body.senha : "";
+
+    if (!nome || nome.length > 100 || !emailValido(email) || !senhaValida(senha)) {
+        return res.status(400).render("admin-cadastro", { erro: true });
+    }
+
+    try {
+        const senhaHash = await bcrypt.hash(senha, 12);
+        const [resultado] = await db.execute(
+            "INSERT INTO usuarios (nome, email, senha, tipo) VALUES (?, ?, ?, 'ADM')",
+            [nome, email, senhaHash]
+        );
+
+        req.session = {
+            user: {
+                id: resultado.insertId,
+                tipo: "ADM",
+                nome
+            }
+        };
+
+        return res.redirect("/admin");
+    } catch (erro) {
+        if (erro.code === "ER_DUP_ENTRY") {
+            return res.status(409).render("admin-cadastro", { erro: true });
+        }
+
+        console.error("Erro ao cadastrar administrador:", erro.message);
+        return res.status(500).render("admin-cadastro", { erro: true });
+    }
+});
+
 router.get("/admin/login", (req, res) => {
     if (req.session?.user?.tipo === "ADM") {
         return res.redirect("/admin");
@@ -83,7 +238,7 @@ router.post("/admin/login", async (req, res) => {
 
     try {
         const [usuarios] = await db.execute(
-            "SELECT id_usuario, senha, tipo FROM usuarios WHERE email = ? LIMIT 1",
+            "SELECT id_usuario, nome, senha, tipo FROM usuarios WHERE email = ? LIMIT 1",
             [email]
         );
         const usuario = usuarios[0];
@@ -95,7 +250,8 @@ router.post("/admin/login", async (req, res) => {
         req.session = {
             user: {
                 id: usuario.id_usuario,
-                tipo: usuario.tipo
+                tipo: usuario.tipo,
+                nome: usuario.nome
             }
         };
 

@@ -1,0 +1,32 @@
+<%- include('partials/header') %>
+
+<main class="auth-page container">
+    <section class="auth-panel" aria-labelledby="login-title">
+        <p class="eyebrow"><span class="eyebrow-line"></span> Acesso do cliente</p>
+        <h1 id="login-title">Entre na sua conta</h1>
+        <p>Faça login para solicitar atendimento para o seu veículo.</p>
+
+        <% if (necessario) { %>
+            <div class="notice" role="status">Entre ou crie uma conta antes de solicitar atendimento.</div>
+        <% } %>
+        <% if (erro) { %>
+            <div class="notice notice-error" role="alert">Não foi possível entrar. Verifique os dados e tente novamente.</div>
+        <% } %>
+
+        <form class="auth-form" action="/login" method="POST">
+            <div class="form-field">
+                <label for="email">E-mail</label>
+                <input type="email" id="email" name="email" autocomplete="username" maxlength="100" required>
+            </div>
+            <div class="form-field">
+                <label for="senha">Senha</label>
+                <input type="password" id="senha" name="senha" autocomplete="current-password" maxlength="72" required>
+            </div>
+            <button class="button" type="submit">Entrar</button>
+        </form>
+        <p class="auth-alternative">Ainda não tem conta? <a href="/cadastro">Cadastre-se</a></p>
+        <p class="auth-alternative">É da equipe? <a href="/admin/login">Acesso administrativo</a></p>
+    </section>
+</main>
+
+<%- include('partials/footer') %>
