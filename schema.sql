@@ -12,11 +12,13 @@ CREATE TABLE IF NOT EXISTS usuarios (
 
 CREATE TABLE IF NOT EXISTS clientes (
     id_cliente INT AUTO_INCREMENT PRIMARY KEY,
+    id_usuario INT UNIQUE,
     cpf VARCHAR(14) UNIQUE,
     cnpj VARCHAR(18) UNIQUE,    
     nome VARCHAR(100) NOT NULL,
     telefone VARCHAR(20) NOT NULL,
-    email VARCHAR(100) NOT NULL
+    email VARCHAR(100) NOT NULL,
+    CONSTRAINT fk_clientes_usuario FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario)
 );
 
 CREATE TABLE IF NOT EXISTS veiculos (
@@ -38,32 +40,37 @@ CREATE TABLE IF NOT EXISTS mecanicos (
     especialidade VARCHAR(50)
 );
 
+CREATE TABLE IF NOT EXISTS solicitacoes (
+    id_solicitacao INT AUTO_INCREMENT PRIMARY KEY,
+    id_usuario INT NULL,
+    nome VARCHAR(100) NOT NULL,
+    telefone VARCHAR(20) NOT NULL,
+    marca_veiculo VARCHAR(30) NOT NULL,
+    modelo_veiculo VARCHAR(50) NOT NULL,
+    ano_veiculo INT NOT NULL,
+    placa VARCHAR(8) NOT NULL,
+    descricao_problema TEXT NOT NULL,
+    status ENUM('PENDENTE', 'EM_ATENDIMENTO', 'CONCLUIDA', 'CANCELADA') NOT NULL DEFAULT 'PENDENTE',
+    data_solicitacao DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_solicitacoes_usuario FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario)
+);
+
 -- ========================================================
 -- MOVIMENTAÇÕES E TRANSAÇÕES
 -- ========================================================
 
 CREATE TABLE IF NOT EXISTS servicos (
     id_servico INT AUTO_INCREMENT PRIMARY KEY,
+    id_solicitacao INT UNIQUE,
     id_mecanico INT NOT NULL,
     id_cliente INT NOT NULL,
     id_veiculo INT NOT NULL,
     data_servico DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     preco_servico DECIMAL(10,2) NOT NULL,
     forma_pagamento VARCHAR(50) NOT NULL,
+    descricao_problema TEXT,
+    FOREIGN KEY (id_solicitacao) REFERENCES solicitacoes(id_solicitacao),
     FOREIGN KEY (id_mecanico) REFERENCES mecanicos(id_mecanico),
     FOREIGN KEY (id_cliente) REFERENCES clientes(id_cliente),
     FOREIGN KEY (id_veiculo) REFERENCES veiculos(id_veiculo)
-);
-
-CREATE TABLE IF NOT EXISTS solicitacoes (
-    id_solicitacao INT AUTO_INCREMENT PRIMARY KEY,
-    id_usuario INT NULL,
-    nome VARCHAR(100) NOT NULL,
-    telefone VARCHAR(20) NOT NULL,
-    modelo_veiculo VARCHAR(50) NOT NULL,
-    placa VARCHAR(8) NOT NULL,
-    descricao_problema TEXT NOT NULL,
-    status ENUM('PENDENTE', 'EM_ATENDIMENTO', 'CONCLUIDA', 'CANCELADA') NOT NULL DEFAULT 'PENDENTE',
-    data_solicitacao DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_solicitacoes_usuario FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario)
 );

@@ -146,14 +146,19 @@ router.post("/servicos", requireCustomer, async (req, res) => {
 
     const nome = limpar(req.body.nome);
     const telefone = limpar(req.body.telefone);
-    const veiculo = limpar(req.body.carro);
+    const marca = limpar(req.body.marca);
+    const modelo = limpar(req.body.modelo);
+    const ano = Number(req.body.ano);
     const placa = limpar(req.body.placa).toUpperCase();
     const problema = limpar(req.body.problema);
+    const anoAtual = new Date().getFullYear();
 
     if (
-        !nome || !telefone || !veiculo || !placa || !problema ||
+        !nome || !telefone || !marca || !modelo || !placa || !problema ||
         nome.length > 100 || telefone.length > 20 ||
-        veiculo.length > 50 || placa.length > 8 || problema.length > 5000
+        marca.length > 30 || modelo.length > 50 ||
+        !Number.isInteger(ano) || ano < 1900 || ano > anoAtual + 1 ||
+        placa.length > 8 || problema.length > 5000
     ) {
         return res.status(400).render("servicos", {
             enviado: false,
@@ -163,9 +168,11 @@ router.post("/servicos", requireCustomer, async (req, res) => {
 
     try {
         await db.execute(
-            `INSERT INTO solicitacoes (id_usuario, nome, telefone, modelo_veiculo, placa, descricao_problema)
-             VALUES (?, ?, ?, ?, ?, ?)`,
-            [req.session.user.id, nome, telefone, veiculo, placa, problema]
+            `INSERT INTO solicitacoes (
+                id_usuario, nome, telefone, marca_veiculo, modelo_veiculo,
+                ano_veiculo, placa, descricao_problema
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [req.session.user.id, nome, telefone, marca, modelo, ano, placa, problema]
         );
 
         return res.redirect(303, "/servicos?enviado=1");
@@ -270,11 +277,23 @@ router.post("/admin/logout", requireAdmin, (req, res) => {
 router.get("/admin", requireAdmin, async (req, res) => {
     try {
         const [solicitacoes] = await db.query(`
-            SELECT id_solicitacao, nome, telefone, modelo_veiculo, placa,
-                   descricao_problema, data_solicitacao
+            SELECT s.id_solicitacao, s.id_usuario, s.nome, s.telefone,
+                     s.marca_veiculo, s.modelo_veiculo, s.ano_veiculo,
+                     s.placa, s.descricao_problema,
+                   s.status, s.data_solicitacao, u.email AS email_cliente
+            FROM solicitacoes s
+            LEFT JOIN usuarios u ON u.id_usuario = s.id_usuario
+            WHERE s.status = 'PENDENTE'
+            ORDER BY s.data_solicitacao ASC
+            LIMIT 50
+        `);
+        const [solicitacoesHistorico] = await db.query(`
+                 SELECT id_solicitacao, nome, marca_veiculo, modelo_veiculo,
+                     ano_veiculo, placa,
+                   descricao_problema, status, data_solicitacao
             FROM solicitacoes
-            WHERE status = 'PENDENTE'
-            ORDER BY data_solicitacao ASC
+            WHERE status <> 'PENDENTE'
+            ORDER BY data_solicitacao DESC
             LIMIT 50
         `);
         const [mecanicos] = await db.query(`
@@ -296,7 +315,8 @@ router.get("/admin", requireAdmin, async (req, res) => {
             LIMIT 20
         `);
         const [servicos] = await db.query(`
-            SELECT s.id_servico, s.data_servico, s.preco_servico, s.forma_pagamento,
+                        SELECT s.id_servico, s.data_servico, s.preco_servico,
+                                     s.forma_pagamento, s.descricao_problema,
                    c.nome AS cliente, v.placa, v.modelo, m.nome AS mecanico
             FROM servicos s
             INNER JOIN clientes c ON c.id_cliente = s.id_cliente
@@ -318,11 +338,14 @@ router.get("/admin", requireAdmin, async (req, res) => {
             mecanico: "Não foi possível cadastrar o mecânico. Confira os campos.",
             dados: "Preencha corretamente os dados necessários para abrir o serviço.",
             sucesso: "Solicitação processada e serviço criado.",
+            concluida: "Solicitação marcada como concluída.",
+            concluir: "Não foi possível concluir. Verifique se a solicitação está em atendimento.",
             mecanicoCriado: "Mecânico cadastrado com sucesso."
         };
 
         return res.render("admin", {
             solicitacoes,
+            solicitacoesHistorico,
             mecanicos,
             clientes,
             veiculos,
@@ -334,6 +357,30 @@ router.get("/admin", requireAdmin, async (req, res) => {
     } catch (erro) {
         console.error("Erro ao carregar painel administrativo:", erro.message);
         return res.status(500).send("Não foi possível carregar o painel administrativo.");
+    }
+});
+
+router.post("/admin/solicitacoes/:id/concluir", requireAdmin, async (req, res) => {
+    const solicitacaoId = Number(req.params.id);
+
+    if (!Number.isInteger(solicitacaoId) || solicitacaoId < 1) {
+        return res.redirect("/admin?erro=concluir");
+    }
+
+    try {
+        const [resultado] = await db.execute(
+            "UPDATE solicitacoes SET status = 'CONCLUIDA' WHERE id_solicitacao = ? AND status = 'EM_ATENDIMENTO'",
+            [solicitacaoId]
+        );
+
+        if (resultado.affectedRows !== 1) {
+            return res.redirect("/admin?erro=concluir");
+        }
+
+        return res.redirect("/admin?aviso=concluida");
+    } catch (erro) {
+        console.error("Erro ao concluir solicitação:", erro.message);
+        return res.redirect("/admin?erro=concluir");
     }
 });
 
@@ -364,7 +411,7 @@ router.post("/admin/mecanicos", requireAdmin, async (req, res) => {
 
 router.post("/admin/solicitacoes/:id/processar", requireAdmin, async (req, res) => {
     const solicitacaoId = Number(req.params.id);
-    const email = limpar(req.body.email).toLowerCase();
+    const emailInformado = limpar(req.body.email).toLowerCase();
     const marca = limpar(req.body.marca);
     const modelo = limpar(req.body.modelo);
     const ano = Number(req.body.ano);
@@ -375,7 +422,6 @@ router.post("/admin/solicitacoes/:id/processar", requireAdmin, async (req, res) 
 
     if (
         !Number.isInteger(solicitacaoId) || solicitacaoId < 1 ||
-        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 100 ||
         !marca || marca.length > 30 || !modelo || modelo.length > 50 ||
         !Number.isInteger(ano) || ano < 1900 || ano > anoAtual + 1 ||
         !Number.isInteger(idMecanico) || idMecanico < 1 ||
@@ -392,7 +438,8 @@ router.post("/admin/solicitacoes/:id/processar", requireAdmin, async (req, res) 
         await conexao.beginTransaction();
 
         const [solicitacoes] = await conexao.execute(
-            `SELECT id_solicitacao, nome, telefone, placa
+            `SELECT id_solicitacao, id_usuario, nome, telefone,
+                    modelo_veiculo, placa, descricao_problema
              FROM solicitacoes
              WHERE id_solicitacao = ? AND status = 'PENDENTE'
              FOR UPDATE`,
@@ -404,6 +451,24 @@ router.post("/admin/solicitacoes/:id/processar", requireAdmin, async (req, res) 
             throw new Error("Solicitação inexistente ou já processada.");
         }
 
+        let idUsuario = solicitacao.id_usuario;
+        let emailCliente = emailInformado;
+
+        if (idUsuario) {
+            const [usuarios] = await conexao.execute(
+                "SELECT id_usuario, email FROM usuarios WHERE id_usuario = ? AND tipo = 'CLIENTE' FOR UPDATE",
+                [idUsuario]
+            );
+
+            if (!usuarios[0]) {
+                throw new Error("A conta vinculada à solicitação não foi encontrada.");
+            }
+
+            emailCliente = usuarios[0].email;
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailCliente) || emailCliente.length > 100) {
+            throw new Error("Informe um e-mail válido para a solicitação antiga.");
+        }
+
         const [mecanicosEncontrados] = await conexao.execute(
             "SELECT id_mecanico FROM mecanicos WHERE id_mecanico = ? FOR UPDATE",
             [idMecanico]
@@ -413,18 +478,38 @@ router.post("/admin/solicitacoes/:id/processar", requireAdmin, async (req, res) 
             throw new Error("Mecânico não encontrado.");
         }
 
-        const [clientesEncontrados] = await conexao.execute(
-            "SELECT id_cliente FROM clientes WHERE email = ? FOR UPDATE",
-            [email]
-        );
+        let clientesEncontrados = [];
+
+        if (idUsuario) {
+            [clientesEncontrados] = await conexao.execute(
+                "SELECT id_cliente, id_usuario FROM clientes WHERE id_usuario = ? FOR UPDATE",
+                [idUsuario]
+            );
+        }
+
+        if (!clientesEncontrados[0]) {
+            [clientesEncontrados] = await conexao.execute(
+                "SELECT id_cliente, id_usuario FROM clientes WHERE LOWER(email) = ? ORDER BY id_cliente LIMIT 1 FOR UPDATE",
+                [emailCliente]
+            );
+        }
         let idCliente;
 
         if (clientesEncontrados[0]) {
+            if (clientesEncontrados[0].id_usuario && clientesEncontrados[0].id_usuario !== idUsuario) {
+                throw new Error("O e-mail já está vinculado a outra conta de cliente.");
+            }
             idCliente = clientesEncontrados[0].id_cliente;
+            if (idUsuario && !clientesEncontrados[0].id_usuario) {
+                await conexao.execute(
+                    "UPDATE clientes SET id_usuario = ? WHERE id_cliente = ?",
+                    [idUsuario, idCliente]
+                );
+            }
         } else {
             const [novoCliente] = await conexao.execute(
-                "INSERT INTO clientes (nome, telefone, email) VALUES (?, ?, ?)",
-                [solicitacao.nome, solicitacao.telefone, email]
+                "INSERT INTO clientes (id_usuario, nome, telefone, email) VALUES (?, ?, ?, ?)",
+                [idUsuario, solicitacao.nome, solicitacao.telefone, emailCliente]
             );
             idCliente = novoCliente.insertId;
         }
@@ -440,6 +525,10 @@ router.post("/admin/solicitacoes/:id/processar", requireAdmin, async (req, res) 
                 throw new Error("A placa já está cadastrada para outro cliente.");
             }
             idVeiculo = veiculosEncontrados[0].id_veiculo;
+            await conexao.execute(
+                "UPDATE veiculos SET marca = ?, modelo = ?, ano = ? WHERE id_veiculo = ?",
+                [marca, modelo, ano, idVeiculo]
+            );
         } else {
             const [novoVeiculo] = await conexao.execute(
                 `INSERT INTO veiculos (id_cliente, placa, marca, modelo, ano)
@@ -450,9 +539,11 @@ router.post("/admin/solicitacoes/:id/processar", requireAdmin, async (req, res) 
         }
 
         await conexao.execute(
-            `INSERT INTO servicos (id_mecanico, id_cliente, id_veiculo, preco_servico, forma_pagamento)
-             VALUES (?, ?, ?, ?, ?)`,
-            [idMecanico, idCliente, idVeiculo, preco, formaPagamento]
+            `INSERT INTO servicos (
+                id_solicitacao, id_mecanico, id_cliente, id_veiculo,
+                preco_servico, forma_pagamento, descricao_problema
+             ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [solicitacaoId, idMecanico, idCliente, idVeiculo, preco, formaPagamento, solicitacao.descricao_problema]
         );
         await conexao.execute(
             "UPDATE solicitacoes SET status = 'EM_ATENDIMENTO' WHERE id_solicitacao = ?",
